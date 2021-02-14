@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <X11/extensions/Xrandr.h>
@@ -188,11 +189,23 @@ readpw(Display *dpy, struct xrandr *rr, struct lock **locks, int nscreens,
 				break;
 			}
 			color = len ? INPUT : ((failure || failonclear) ? FAILED : INIT);
-			if (running && oldc != color) {
+			if (running && (oldc != color || len)) {
 				for (screen = 0; screen < nscreens; screen++) {
+                    unsigned long pix;
+                    if (len) {
+                        XColor xcolor, dummy;
+                        char name[8];
+                        unsigned value = 0x00FFFFFF & (unsigned)rand();
+                        snprintf(name, 8, "#%06x", value);
+                        XAllocNamedColor(dpy, DefaultColormap(dpy, locks[screen]->screen),
+		                                 name, &xcolor, &dummy);
+		                pix = xcolor.pixel;
+                    } else {
+                        pix = locks[screen]->colors[color];
+                    }
 					XSetWindowBackground(dpy,
 					                     locks[screen]->win,
-					                     locks[screen]->colors[color]);
+					                     pix);
 					XClearWindow(dpy, locks[screen]->win);
 				}
 				oldc = color;
@@ -322,6 +335,8 @@ main(int argc, char **argv) {
 	default:
 		usage();
 	} ARGEND
+
+    srand(time(0));
 
 	/* validate drop-user and -group */
 	errno = 0;
